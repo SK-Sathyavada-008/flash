@@ -196,6 +196,7 @@ def service_worker():
 
 
 @app.get("/")
+@app.get("/index.html")
 def root():
     """Serves the interactive Flash Sloth Companion app if built, else fallback landing page."""
     index_path = os.path.join(STATIC_DIR, "index.html")

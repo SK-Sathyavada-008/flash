@@ -101,9 +101,21 @@ export const TaskProgress: React.FC<TaskProgressProps> = ({ task, onConfirmTask 
                 </div>
                 <p className="step-explanation">{step.message || step.explanation}</p>
                 {step.output_path && (
-                  <span className="step-path-badge" title={step.output_path}>
-                    📁 {step.output_path.split('\\').pop() || step.output_path}
-                  </span>
+                  step.output_path.startsWith('http') ? (
+                    <a
+                      href={step.output_path}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="step-path-badge link-badge"
+                      style={{ color: '#38bdf8', textDecoration: 'underline', display: 'inline-flex', alignItems: 'center', gap: '4px', cursor: 'pointer' }}
+                    >
+                      🌐 Click to open: {step.output_path}
+                    </a>
+                  ) : (
+                    <span className="step-path-badge" title={step.output_path}>
+                      📁 {step.output_path.split('\\').pop() || step.output_path}
+                    </span>
+                  )
                 )}
               </div>
             </div>

@@ -8,6 +8,7 @@ import { TaskHistory } from './components/TaskHistory';
 import { PairingModal } from './components/PairingModal';
 import { SettingsModal } from './components/SettingsModal';
 import { AboutModal } from './components/AboutModal';
+import { NotepadModal } from './components/NotepadModal';
 import { agentClient } from './services/agentClient';
 import {
   clearTaskHistory,
@@ -40,6 +41,8 @@ export const App: React.FC = () => {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
   const [isAboutOpen, setIsAboutOpen] = useState(false);
+  const [isNotepadOpen, setIsNotepadOpen] = useState(false);
+  const [notepadText, setNotepadText] = useState('');
 
   // Load saved history & gaze setting on startup
   useEffect(() => {
@@ -302,6 +305,71 @@ export const App: React.FC = () => {
     };
   }, [handleServerEvent]);
 
+  // Voice & Web Demo Helper Functions
+  const speakSlothText = (text: string) => {
+    if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+      try {
+        window.speechSynthesis.cancel();
+        const utterance = new SpeechSynthesisUtterance(text);
+        utterance.rate = 0.72; // Deliberate sloth pacing
+        utterance.pitch = 0.85; // Warm, deeper pitch
+        window.speechSynthesis.speak(utterance);
+      } catch (e) {
+        console.warn('Speech synthesis not allowed or supported', e);
+      }
+    }
+  };
+
+  const openNewTab = (url: string): boolean => {
+    try {
+      const w = window.open(url, '_blank', 'noopener,noreferrer');
+      return !!w;
+    } catch (e) {
+      console.warn('Failed to open tab', e);
+      return false;
+    }
+  };
+
+  const downloadCsvSpreadsheet = (filename = 'Flash_Budget_Worksheet.csv') => {
+    const csvContent =
+      'Date,Category,Description,Amount,Status\n' +
+      '2026-10-21,Groceries,Carrots & Pawpsicles,15.50,Completed\n' +
+      '2026-10-21,Office,DMV Ink & Printer Paper,42.00,Completed\n' +
+      '2026-10-21,Coffee,Triple Espresso for Officer Judy,8.75,Pending\n' +
+      '2026-10-21,Transit,Express Train to Zootopia Center,12.00,Completed\n' +
+      '2026-10-21,Sloth Care,Tree Branch Cushion,29.99,Completed\n';
+
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
+  const downloadGroceryList = (filename = 'Flash_Grocery_List.md') => {
+    const content =
+      '# 🛒 Flash Grocery Checklist\n\n' +
+      '- [x] Organic Carrots (for Judy)\n' +
+      '- [x] Jumbo Pawpsicles (for Nick)\n' +
+      '- [ ] Espresso beans (triple roast)\n' +
+      '- [ ] Whole Milk & Fresh Bread\n' +
+      '- [ ] Blueberries & Honey\n';
+
+    const blob = new Blob([content], { type: 'text/markdown;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
   // Send a user prompt (voice or typed)
   const handleSendCommand = (prompt: string, confirmed: boolean = false) => {
     const cleanPrompt = prompt.trim();
@@ -324,41 +392,157 @@ export const App: React.FC = () => {
 
       setTimeout(() => {
         let intent = 'Interactive Web Demo';
-        let explanation = 'Simulated task execution in Cloud Demo mode.';
+        let explanation = 'Executed in Flash Web Demo mode.';
         let actionName = 'open_application';
-        let message = `Flash received '${cleanPrompt}'. In Cloud Demo mode, this simulates desktop automation!`;
+        let message = `Flash received '${cleanPrompt}'.`;
+        let outputPath: string | undefined = undefined;
 
         const p = cleanPrompt.toLowerCase();
-        if (p.includes('notepad')) {
-          intent = 'Launch application: Notepad';
-          explanation = 'Launching Notepad on your Windows desktop...';
-          actionName = 'open_application';
-          message = "Launched application 'notepad'. (Simulated in Cloud Demo mode. Click 'Pair Device' in the header to launch on your real Windows PC!)";
-        } else if (p.includes('browser') || p.includes('google') || p.includes('chrome')) {
-          intent = 'Open web browser';
-          explanation = 'Opening your web browser... slowly but surely.';
-          actionName = 'open_url';
-          message = "Opened 'https://www.google.com' in the default browser. (Simulated in Cloud Demo mode!)";
-        } else if (p.includes('grocery') || p.includes('shopping')) {
-          intent = 'Create grocery checklist';
-          explanation = 'Created your grocery list with Milk, Bread, and Eggs.';
-          actionName = 'create_grocery_list';
-          message = "Created grocery checklist in lists/groceries.md with Milk, Bread, and Eggs.";
-        } else if (p.includes('excel') || p.includes('spreadsheet') || p.includes('sheet')) {
-          intent = 'Generate Excel workbook';
-          explanation = 'Building your Excel spreadsheet (.xlsx)...';
+
+        // 1. Browser & Web Search automation
+        if (
+          p.includes('browser') ||
+          p.includes('google') ||
+          p.includes('chrome') ||
+          p.includes('search') ||
+          p.includes('find') ||
+          p.includes('look up') ||
+          p.includes('github') ||
+          p.includes('dev.to') ||
+          p.includes('dev to') ||
+          p.includes('youtube')
+        ) {
+          actionName = 'open_browser_search';
+          let targetUrl = 'https://www.google.com';
+          let searchTopic = '';
+
+          if (p.includes('github')) {
+            targetUrl = 'https://github.com/SK-Sathyavada-008/flash';
+            searchTopic = 'Flash GitHub Repository';
+            intent = 'Open GitHub Repository';
+            explanation = 'Opening Flash GitHub repository in a new browser tab...';
+          } else if (p.includes('dev.to') || p.includes('dev to')) {
+            targetUrl = 'https://dev.to';
+            searchTopic = 'DEV Community';
+            intent = 'Open DEV.to';
+            explanation = 'Navigating to DEV Community in a new browser tab...';
+          } else if (p.includes('youtube')) {
+            const rawQ = cleanPrompt.replace(/.*(?:youtube|search for|search|find)\s*/i, '').trim();
+            targetUrl = rawQ
+              ? `https://www.youtube.com/results?search_query=${encodeURIComponent(rawQ)}`
+              : 'https://www.youtube.com';
+            searchTopic = rawQ ? `YouTube: ${rawQ}` : 'YouTube';
+            intent = `Search YouTube for "${rawQ || 'trending'}"`;
+            explanation = `Opening YouTube search for "${rawQ || 'trending'}"...`;
+          } else if (
+            p.includes('search') ||
+            p.includes('google') ||
+            p.includes('look up') ||
+            p.includes('find')
+          ) {
+            const rawQ = cleanPrompt
+              .replace(/.*(?:search for|search|google for|google|find|look up)\s*/i, '')
+              .trim();
+            const query = rawQ || 'Hacktoberfest 2026 Open Source AI Challenge';
+            targetUrl = `https://www.google.com/search?q=${encodeURIComponent(query)}`;
+            searchTopic = query;
+            intent = `Search the Web for "${query}"`;
+            explanation = `Opening a new browser tab to search for "${query}"... slowly but surely!`;
+          } else {
+            targetUrl = 'https://www.google.com';
+            searchTopic = 'Google Search';
+            intent = 'Open Web Browser';
+            explanation = 'Launching a new browser tab to https://www.google.com...';
+          }
+
+          outputPath = targetUrl;
+          openNewTab(targetUrl);
+          speakSlothText(searchTopic ? `Searching the web for ${searchTopic}` : 'Opening browser tab for you.');
+          message = `Successfully opened new tab: ${targetUrl}. (If popup was blocked by your browser, click the link above!)`;
+        }
+        // 2. Windows Notepad & Note typing simulation
+        else if (
+          p.includes('notepad') ||
+          p.includes('note') ||
+          p.includes('memo') ||
+          p.includes('type')
+        ) {
+          intent = 'Launch Notepad & Type Note';
+          actionName = 'open_notepad';
+          explanation = 'Launching Notepad on your screen and typing your memo character by character...';
+
+          let noteBody =
+            'Zootopia DMV Memo #402\n' +
+            'Date: October 21, 2026\n' +
+            'From: Flash Slothmore\n' +
+            'To: Officer Judy Hopps & Nick Wilde\n\n' +
+            'Subject: Desktop Automation & Hacktoberfest\n\n' +
+            'Slow and steady wins the race. All requests are processed with deliberate care. ' +
+            'Please enjoy a pawpsicle while waiting.\n\n' +
+            '— Flash 🦥';
+
+          const noteMatch = cleanPrompt.match(
+            /(?:notepad|note|write|type)\s+(?:that|about|saying)?\s*[:"-]?\s*(.+)/i
+          );
+          if (noteMatch && noteMatch[1] && noteMatch[1].length > 3) {
+            noteBody = `Note from Flash:\n\n${noteMatch[1].trim()}\n\n— Typed by Flash Desktop Companion`;
+          }
+
+          setNotepadText(noteBody);
+          setIsNotepadOpen(true);
+          speakSlothText('Opening Notepad on your screen and typing your memo.');
+          message = 'Launched Flash Interactive Notepad modal and typed memo character-by-character.';
+        }
+        // 3. Excel Spreadsheet generation & download
+        else if (
+          p.includes('excel') ||
+          p.includes('spreadsheet') ||
+          p.includes('sheet') ||
+          p.includes('budget') ||
+          p.includes('csv')
+        ) {
+          intent = 'Generate Excel Spreadsheet';
           actionName = 'create_spreadsheet';
-          message = "Generated workbook 'spreadsheets/budget.xlsx' with Category, Budgeted, and Actual columns.";
-        } else if (p.includes('joke')) {
-          intent = 'Tell a sloth joke';
+          explanation = 'Building formatted spreadsheet (Flash_Budget_Worksheet.csv)...';
+          outputPath = 'Flash_Budget_Worksheet.csv';
+          downloadCsvSpreadsheet();
+          speakSlothText('Building your Excel spreadsheet. Downloading file now.');
+          message = 'Generated and downloaded workbook (Flash_Budget_Worksheet.csv) with Date, Category, Description, and Amount columns.';
+        }
+        // 4. Grocery Checklist generation & download
+        else if (
+          p.includes('grocery') ||
+          p.includes('shopping') ||
+          p.includes('checklist') ||
+          p.includes('market')
+        ) {
+          intent = 'Create Grocery Checklist';
+          actionName = 'create_grocery_list';
+          explanation = 'Created your grocery checklist with Carrots, Pawpsicles, and Espresso.';
+          outputPath = 'Flash_Grocery_List.md';
+          downloadGroceryList();
+          speakSlothText('Created your grocery checklist with carrots and pawpsicles.');
+          message = 'Generated and downloaded grocery checklist (Flash_Grocery_List.md).';
+        }
+        // 5. Sloth Jokes
+        else if (p.includes('joke') || p.includes('laugh')) {
+          intent = 'Tell Sloth Joke';
+          actionName = 'speak_text';
           explanation = 'What... do... you... call... a... three-humped... camel? ...... Pregnant!';
-          actionName = 'speak_text';
+          speakSlothText('What... do... you... call... a... three-humped... camel? ...... Pregnant!');
           message = 'What... do... you... call... a... three-humped... camel? ...... Pregnant!';
-        } else if (p.includes('who are you') || p.includes('what are you') || p.includes('help')) {
-          intent = 'Introduce Flash';
-          explanation = "I am Flash, the fastest sloth at the DMV! I control your Windows desktop via voice and local Gemma AI.";
+        }
+        // 6. Introductions & Help
+        else {
+          intent = 'Introduce Flash Desktop Companion';
           actionName = 'speak_text';
-          message = "I am Flash! I can open apps, type text, make Excel sheets, research the web, and assist with meetings.";
+          explanation =
+            'I am Flash, the fastest sloth at the DMV! Try asking me to search the web, generate an Excel sheet, or open Notepad.';
+          speakSlothText(
+            'I am Flash, the fastest sloth at the DMV. Try asking me to search the web, create an excel sheet, or open notepad!'
+          );
+          message =
+            "I can search the web, download spreadsheets, open Notepad, manage grocery lists, and pair with your Windows desktop for full OS automation!";
         }
 
         const taskRecord: TaskRecord = {
@@ -375,9 +559,10 @@ export const App: React.FC = () => {
               explanation,
               success: true,
               message,
+              output_path: outputPath,
             },
           ],
-          execution_time_ms: 320,
+          execution_time_ms: 450,
           timestamp: now,
         };
 
@@ -526,6 +711,13 @@ export const App: React.FC = () => {
         onClose={() => setIsHistoryOpen(false)}
         onClearHistory={handleClearHistory}
         onSelectTask={(t) => setCurrentTask(t)}
+      />
+
+      {/* Notepad Simulator Modal */}
+      <NotepadModal
+        isOpen={isNotepadOpen}
+        onClose={() => setIsNotepadOpen(false)}
+        initialText={notepadText}
       />
     </div>
   );
