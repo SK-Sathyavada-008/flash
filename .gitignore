@@ -1,0 +1,36 @@
+# Build & Apple
+.build/
+build/
+DerivedData/
+*.xcuserstate
+xcuserdata/
+.DS_Store
+
+# Python & Virtual Environments
+venv/
+env/
+ENV/
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Node & Companion Web App
+node_modules/
+dist/
+.npm/
+
+# Local Storage & Runtime Artifacts
+flash_storage/
+*.xlsx.tmp
+Flash Workspace/
+
+# Secrets & Environment (NEVER COMMIT CREDENTIALS)
+Secrets.xcconfig
+.env
+*.env
+!.env.example
+!agent/.env.example
+

@@ -1,0 +1,14 @@
+services:
+  - type: web
+    name: flash-cloud-coordinator
+    env: python
+    region: oregon
+    plan: free
+    buildCommand: "pip install -r cloud/requirements.txt"
+    startCommand: "uvicorn cloud.main:app --host 0.0.0.0 --port $PORT"
+    healthCheckPath: /healthz
+    envVars:
+      - key: FLASH_CLOUD_MODE
+        value: coordinator
+      - key: PYTHON_VERSION
+        value: 3.12.0
