@@ -73,7 +73,7 @@ Flash works deliberately, safely, and transparently — with **zero required clo
 | **Real Windows Desktop Control** | Windows UIA, pywinauto, mouse click/drag/scroll | Real-time event streaming | 100% Offline |
 | **Active Cursor Restoration** | Warps cursor back to user position after task | Gaze follows cursor at 20Hz | 100% Offline |
 | **Microsoft Office Generation** | Real `.xlsx` (formulas), `.docx`, `.pptx` decks | Instant download & preview | 100% Offline |
-| **Checklists & Lists** | Spoken item splitting ("milk, bread and eggs") | Reactive checklist UI | 100% Offline |
+| **Checklists & Lists** | Spoken item splitting ("milk, bread and butter") | Reactive checklist UI | 100% Offline |
 | **Speech Output** | ElevenLabs neural voice or Windows SAPI | Audio playback & captions | 100% Offline |
 | **Web & Browser Automation** | Stagehand primitives (`act`, `extract`, `observe`) | Status & extracted results | Local Playwright |
 | **Cloud Coordination & Deploy** | Strict localhost boundary; Render landing page | Optional cloud sync | Local JSON storage |
