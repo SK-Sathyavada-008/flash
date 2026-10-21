@@ -1,5 +1,5 @@
 import React from 'react';
-import { OctagonX, Settings as SettingsIcon, Wifi, WifiOff } from 'lucide-react';
+import { HelpCircle, OctagonX, Settings as SettingsIcon, Wifi, WifiOff } from 'lucide-react';
 import { ConnectionStatus } from '../types';
 
 interface HeaderProps {
@@ -7,6 +7,7 @@ interface HeaderProps {
   isEmergencyStopped: boolean;
   onOpenSettings: () => void;
   onOpenPairing: () => void;
+  onOpenAbout?: () => void;
   onEmergencyStop: () => void;
   onResume: () => void;
 }
@@ -16,6 +17,7 @@ export const Header: React.FC<HeaderProps> = ({
   isEmergencyStopped,
   onOpenSettings,
   onOpenPairing,
+  onOpenAbout,
   onEmergencyStop,
   onResume,
 }) => {
@@ -26,10 +28,10 @@ export const Header: React.FC<HeaderProps> = ({
       case 'connecting':
         return 'Connecting...';
       case 'error':
-        return 'Conn Error';
+        return 'Offline';
       case 'disconnected':
       default:
-        return 'Pair Device';
+        return 'Web Demo';
     }
   };
 
@@ -77,6 +79,16 @@ export const Header: React.FC<HeaderProps> = ({
             <span>STOP</span>
           </button>
         )}
+
+        {/* About & Architecture info button */}
+        <button
+          className="btn-icon-settings"
+          onClick={onOpenAbout}
+          aria-label="About Flash & Security Boundary"
+          title="About & Architecture"
+        >
+          <HelpCircle size={19} />
+        </button>
 
         {/* Settings button */}
         <button

@@ -7,6 +7,7 @@ import { TaskProgress } from './components/TaskProgress';
 import { TaskHistory } from './components/TaskHistory';
 import { PairingModal } from './components/PairingModal';
 import { SettingsModal } from './components/SettingsModal';
+import { AboutModal } from './components/AboutModal';
 import { agentClient } from './services/agentClient';
 import {
   clearTaskHistory,
@@ -25,7 +26,7 @@ import {
 export const App: React.FC = () => {
   const [connectionStatus, setConnectionStatus] = useState<ConnectionStatus>('disconnected');
   const [connectionDetail, setConnectionDetail] = useState<string>('');
-  const [expressionState, setExpressionState] = useState<CompanionExpressionState>('disconnected');
+  const [expressionState, setExpressionState] = useState<CompanionExpressionState>('idle');
   const [isEmergencyStopped, setIsEmergencyStopped] = useState(false);
 
   // Milestone 4: Cursor Gaze State (centered by default)
@@ -38,6 +39,7 @@ export const App: React.FC = () => {
   const [isPairingOpen, setIsPairingOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
+  const [isAboutOpen, setIsAboutOpen] = useState(false);
 
   // Load saved history & gaze setting on startup
   useEffect(() => {
@@ -66,16 +68,14 @@ export const App: React.FC = () => {
     return () => window.removeEventListener('mousemove', handleMouseMove);
   }, []);
 
-  // Update expression state based on connection
+  // Update expression state based on emergency stop
   useEffect(() => {
-    if (connectionStatus === 'disconnected' || connectionStatus === 'error') {
-      setExpressionState('disconnected');
-    } else if (isEmergencyStopped) {
+    if (isEmergencyStopped) {
       setExpressionState('stopped');
-    } else if (expressionState === 'disconnected') {
+    } else if (expressionState === 'stopped') {
       setExpressionState('idle');
     }
-  }, [connectionStatus, isEmergencyStopped]);
+  }, [isEmergencyStopped]);
 
   // Handle incoming WebSocket events from agent backend
   const handleServerEvent = useCallback((event: ServerWebSocketEvent) => {
@@ -294,9 +294,6 @@ export const App: React.FC = () => {
     const isLocal = config.host === '127.0.0.1' || config.host === 'localhost';
     if (config.token || isLocal) {
       agentClient.connect();
-    } else {
-      // Prompt user to pair on first visit from remote phone
-      setIsPairingOpen(true);
     }
 
     return () => {
@@ -307,16 +304,96 @@ export const App: React.FC = () => {
 
   // Send a user prompt (voice or typed)
   const handleSendCommand = (prompt: string, confirmed: boolean = false) => {
-    if (connectionStatus !== 'connected') {
-      setIsPairingOpen(true);
-      return;
-    }
-
     const cleanPrompt = prompt.trim();
     if (!cleanPrompt) return;
 
-    // Immediate visual feedback on companion screen
     const now = Date.now();
+
+    // 1. Interactive Web Demo Mode when not paired with a Windows PC
+    if (connectionStatus !== 'connected') {
+      setCurrentTask({
+        id: String(now),
+        prompt: cleanPrompt,
+        status: 'thinking',
+        intent: 'Flash is thinking...',
+        explanation: 'Flash is planning your task slowly and carefully...',
+        steps: [],
+        timestamp: now,
+      });
+      setExpressionState('thinking');
+
+      setTimeout(() => {
+        let intent = 'Interactive Web Demo';
+        let explanation = 'Simulated task execution in Cloud Demo mode.';
+        let actionName = 'open_application';
+        let message = `Flash received '${cleanPrompt}'. In Cloud Demo mode, this simulates desktop automation!`;
+
+        const p = cleanPrompt.toLowerCase();
+        if (p.includes('notepad')) {
+          intent = 'Launch application: Notepad';
+          explanation = 'Launching Notepad on your Windows desktop...';
+          actionName = 'open_application';
+          message = "Launched application 'notepad'. (Simulated in Cloud Demo mode. Click 'Pair Device' in the header to launch on your real Windows PC!)";
+        } else if (p.includes('browser') || p.includes('google') || p.includes('chrome')) {
+          intent = 'Open web browser';
+          explanation = 'Opening your web browser... slowly but surely.';
+          actionName = 'open_url';
+          message = "Opened 'https://www.google.com' in the default browser. (Simulated in Cloud Demo mode!)";
+        } else if (p.includes('grocery') || p.includes('shopping')) {
+          intent = 'Create grocery checklist';
+          explanation = 'Created your grocery list with Milk, Bread, and Eggs.';
+          actionName = 'create_grocery_list';
+          message = "Created grocery checklist in lists/groceries.md with Milk, Bread, and Eggs.";
+        } else if (p.includes('excel') || p.includes('spreadsheet') || p.includes('sheet')) {
+          intent = 'Generate Excel workbook';
+          explanation = 'Building your Excel spreadsheet (.xlsx)...';
+          actionName = 'create_spreadsheet';
+          message = "Generated workbook 'spreadsheets/budget.xlsx' with Category, Budgeted, and Actual columns.";
+        } else if (p.includes('joke')) {
+          intent = 'Tell a sloth joke';
+          explanation = 'What... do... you... call... a... three-humped... camel? ...... Pregnant!';
+          actionName = 'speak_text';
+          message = 'What... do... you... call... a... three-humped... camel? ...... Pregnant!';
+        } else if (p.includes('who are you') || p.includes('what are you') || p.includes('help')) {
+          intent = 'Introduce Flash';
+          explanation = "I am Flash, the fastest sloth at the DMV! I control your Windows desktop via voice and local Gemma AI.";
+          actionName = 'speak_text';
+          message = "I am Flash! I can open apps, type text, make Excel sheets, research the web, and assist with meetings.";
+        }
+
+        const taskRecord: TaskRecord = {
+          id: String(now),
+          prompt: cleanPrompt,
+          intent,
+          status: 'completed',
+          success: true,
+          explanation,
+          steps: [
+            {
+              step_index: 1,
+              action_name: actionName,
+              explanation,
+              success: true,
+              message,
+            },
+          ],
+          execution_time_ms: 320,
+          timestamp: now,
+        };
+
+        setCurrentTask(taskRecord);
+        setExpressionState('success');
+        setTaskHistory((prev) => [taskRecord, ...prev.slice(0, 20)]);
+
+        setTimeout(() => {
+          setExpressionState('idle');
+        }, 5000);
+      }, 700);
+
+      return;
+    }
+
+    // 2. Connected to local Windows laptop: stream over WebSocket
     setCurrentTask({
       id: String(now),
       prompt: cleanPrompt,
@@ -348,7 +425,7 @@ export const App: React.FC = () => {
     await agentClient.unpair();
     setCurrentTask(null);
     setConnectionStatus('disconnected');
-    setExpressionState('disconnected');
+    setExpressionState('idle');
     setIsPairingOpen(true);
   };
 
@@ -365,6 +442,7 @@ export const App: React.FC = () => {
         isEmergencyStopped={isEmergencyStopped}
         onOpenSettings={() => setIsSettingsOpen(true)}
         onOpenPairing={() => setIsPairingOpen(true)}
+        onOpenAbout={() => setIsAboutOpen(true)}
         onEmergencyStop={() => agentClient.stop()}
         onResume={() => agentClient.resume()}
       />
@@ -377,9 +455,9 @@ export const App: React.FC = () => {
           cursorGaze={cursorGaze}
           gazeEnabled={gazeEnabled}
           subtext={
-            connectionStatus !== 'connected'
-              ? connectionDetail || 'Not connected to laptop agent'
-              : currentTask?.explanation || '⚡ DMV Fastest Sloth'
+            connectionStatus === 'connected'
+              ? currentTask?.explanation || '⚡ DMV Fastest Sloth (Connected to PC)'
+              : currentTask?.explanation || '⚡ DMV Fastest Sloth (Interactive Web Demo)'
           }
           onClick={() => {
             if (connectionStatus !== 'connected') {
@@ -398,7 +476,7 @@ export const App: React.FC = () => {
       {/* Bottom Voice & Text Interaction Area */}
       <footer className="companion-footer">
         <VoiceControl
-          disabled={connectionStatus !== 'connected' || isEmergencyStopped}
+          disabled={isEmergencyStopped}
           onSendCommand={(p) => handleSendCommand(p, false)}
           onListeningStateChange={handleListeningStateChange}
         />
@@ -432,6 +510,13 @@ export const App: React.FC = () => {
         onClearHistory={handleClearHistory}
         onUnpair={handleUnpair}
         onReconnect={() => agentClient.connect()}
+      />
+
+      {/* About & Security Boundary Modal */}
+      <AboutModal
+        isOpen={isAboutOpen}
+        onClose={() => setIsAboutOpen(false)}
+        onOpenPairing={() => setIsPairingOpen(true)}
       />
 
       {/* Task History Modal */}

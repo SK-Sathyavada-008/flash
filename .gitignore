@@ -26,6 +26,8 @@ dist/
 flash_storage/
 *.xlsx.tmp
 Flash Workspace/
+auth_tokens.json
+.vite/
 
 # Secrets & Environment (NEVER COMMIT CREDENTIALS)
 Secrets.xcconfig

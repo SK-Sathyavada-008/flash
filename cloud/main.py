@@ -2,7 +2,8 @@
 
 Designed for deployment on Render.
 ARCHITECTURE BOUNDARY:
-- This service handles public documentation, cloud coordination, and optional cross-device status sync.
+- This service serves the Flash Sloth Companion web app, handles health checks, public documentation,
+  and coordinates connection between the companion app and the user's local Windows machine.
 - Desktop control and OS automation CANNOT and DO NOT execute on Render; desktop execution
   is strictly confined to the user's local Windows agent running on localhost.
 """
@@ -10,12 +11,13 @@ ARCHITECTURE BOUNDARY:
 import os
 import time
 from fastapi import FastAPI
-from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi.responses import HTMLResponse, JSONResponse, FileResponse
+from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 
 app = FastAPI(
     title="Flash Cloud Coordinator",
-    description="Render-hosted public landing page and cloud coordinator for Flash Sloth Agent.",
+    description="Render-hosted public companion app and cloud coordinator for Flash Sloth Agent.",
     version="1.0.0",
 )
 
@@ -28,44 +30,16 @@ app.add_middleware(
 )
 
 START_TIME = time.time()
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+STATIC_DIR = os.path.join(BASE_DIR, "static")
+ASSETS_DIR = os.path.join(STATIC_DIR, "assets")
+
+# Mount assets directory if present
+if os.path.isdir(ASSETS_DIR):
+    app.mount("/assets", StaticFiles(directory=ASSETS_DIR), name="assets")
 
 
-@app.get("/healthz")
-def health_check():
-    """Health check endpoint required for Render deployments."""
-    return JSONResponse({
-        "status": "healthy",
-        "service": "flash-cloud-coordinator",
-        "uptime_seconds": round(time.time() - START_TIME, 2),
-        "environment": os.getenv("RENDER_SERVICE_NAME", "local-or-render"),
-        "architecture_boundary": {
-            "cloud_role": "Public landing page, documentation, and optional routine synchronization",
-            "desktop_execution_role": "Confined 100% to local Windows PC agent; no remote desktop execution from cloud",
-            "zero_cloud_privilege": True,
-        },
-    })
-
-
-@app.get("/api/v1/cloud-status")
-def cloud_status():
-    """Status endpoint detailing coordination features."""
-    return JSONResponse({
-        "service_name": "Flash Cloud Coordination Service",
-        "deployed_on": "Render",
-        "active_features": [
-            "Render deployment blueprint (render.yaml)",
-            "Automated health checks (/healthz)",
-            "Boundary isolation between cloud telemetry and local Windows execution",
-            "Public product documentation and connection guidance",
-        ],
-        "local_agent_requirement": "Windows 10/11 with Python 3.12, Ollama (Gemma 2:2b), and Flash Agent daemon",
-    })
-
-
-@app.get("/", response_class=HTMLResponse)
-def landing_page():
-    """Public landing page showcasing Flash, features, and architecture boundary."""
-    return """<!DOCTYPE html>
+LANDING_PAGE_HTML = """<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
@@ -85,7 +59,9 @@ def landing_page():
     * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; }
     body { background-color: var(--bg); color: var(--text); min-height: 100vh; display: flex; flex-direction: column; }
     header { padding: 2rem; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border); }
-    .logo { font-size: 1.5rem; font-weight: 800; display: flex; align-items: center; gap: 0.5rem; color: var(--primary); }
+    .logo { font-size: 1.5rem; font-weight: 800; display: flex; align-items: center; gap: 0.5rem; color: var(--primary); text-decoration: none; }
+    .nav-actions { display: flex; gap: 1rem; align-items: center; }
+    .btn { background: var(--primary); color: #0f172a; padding: 0.5rem 1rem; border-radius: 8px; font-weight: 700; text-decoration: none; font-size: 0.9rem; }
     .badge { background: rgba(56, 189, 248, 0.15); color: var(--primary); padding: 0.25rem 0.75rem; border-radius: 9999px; font-size: 0.85rem; font-weight: 600; border: 1px solid rgba(56, 189, 248, 0.3); }
     main { max-width: 1000px; margin: 0 auto; padding: 4rem 1.5rem; flex: 1; }
     .hero { text-align: center; margin-bottom: 4rem; }
@@ -99,13 +75,15 @@ def landing_page():
     .boundary-banner h3 { color: var(--success); margin-bottom: 0.5rem; }
     .boundary-banner p { color: var(--text-muted); font-size: 0.95rem; line-height: 1.5; }
     footer { text-align: center; padding: 2rem; border-top: 1px solid var(--border); color: var(--text-muted); font-size: 0.85rem; }
-    code { background: rgba(0,0,0,0.4); padding: 0.2rem 0.4rem; border-radius: 4px; font-family: monospace; color: #e2e8f0; }
   </style>
 </head>
 <body>
   <header>
-    <div class="logo">🦥 Flash Agent</div>
-    <div class="badge">Deployed on Render</div>
+    <a href="/" class="logo">🦥 Flash Agent</a>
+    <div class="nav-actions">
+      <a href="/" class="btn">Launch Flash Companion</a>
+      <div class="badge">Deployed on Render</div>
+    </div>
   </header>
   <main>
     <div class="hero">
@@ -115,7 +93,7 @@ def landing_page():
 
     <div class="boundary-banner">
       <h3>🛡️ Security Boundary Guarantee</h3>
-      <p>This public landing page and coordination service runs on <strong>Render</strong>. All desktop actions, mouse movements, file operations, Office document generation, and screen inspections execute exclusively on your <strong>local Windows machine</strong>. Render has zero remote access or desktop privileges.</p>
+      <p>This public service runs on <strong>Render</strong>. All desktop actions, mouse movements, file operations, Office document generation, and screen inspections execute exclusively on your <strong>local Windows machine</strong>. Render has zero remote access or desktop privileges.</p>
     </div>
 
     <div class="grid">
@@ -151,3 +129,76 @@ def landing_page():
 </body>
 </html>
 """
+
+
+@app.get("/healthz")
+def health_check():
+    """Health check endpoint required for Render deployments."""
+    return JSONResponse({
+        "status": "healthy",
+        "service": "flash-cloud-coordinator",
+        "uptime_seconds": round(time.time() - START_TIME, 2),
+        "environment": os.getenv("RENDER_SERVICE_NAME", "local-or-render"),
+        "architecture_boundary": {
+            "cloud_role": "Public companion web app, health monitoring, documentation, and coordination",
+            "desktop_execution_role": "Confined 100% to local Windows PC agent; no remote desktop execution from cloud",
+            "zero_cloud_privilege": True,
+        },
+    })
+
+
+@app.get("/api/v1/cloud-status")
+def cloud_status():
+    """Status endpoint detailing coordination features."""
+    return JSONResponse({
+        "service_name": "Flash Cloud Coordination Service",
+        "deployed_on": "Render",
+        "active_features": [
+            "Flash Sloth Web Companion",
+            "Interactive Web Demo Mode",
+            "Render deployment blueprint (render.yaml)",
+            "Automated health checks (/healthz)",
+            "Boundary isolation between cloud telemetry and local Windows execution",
+            "Public product documentation and connection guidance (/about)",
+        ],
+        "local_agent_requirement": "Windows 10/11 with Python 3.12, Ollama (Gemma 2:2b), and Flash Agent daemon",
+    })
+
+
+@app.get("/about", response_class=HTMLResponse)
+def about_page():
+    """Detailed architectural documentation and security boundary overview."""
+    return LANDING_PAGE_HTML
+
+
+@app.get("/favicon.svg")
+def favicon():
+    icon_path = os.path.join(STATIC_DIR, "favicon.svg")
+    if os.path.isfile(icon_path):
+        return FileResponse(icon_path, media_type="image/svg+xml")
+    return JSONResponse({"error": "not found"}, status_code=404)
+
+
+@app.get("/manifest.webmanifest")
+def manifest():
+    manifest_path = os.path.join(STATIC_DIR, "manifest.webmanifest")
+    if os.path.isfile(manifest_path):
+        return FileResponse(manifest_path, media_type="application/manifest+json")
+    return JSONResponse({"error": "not found"}, status_code=404)
+
+
+@app.get("/sw.js")
+def service_worker():
+    sw_path = os.path.join(STATIC_DIR, "sw.js")
+    if os.path.isfile(sw_path):
+        return FileResponse(sw_path, media_type="application/javascript")
+    return JSONResponse({"error": "not found"}, status_code=404)
+
+
+@app.get("/")
+def root():
+    """Serves the interactive Flash Sloth Companion app if built, else fallback landing page."""
+    index_path = os.path.join(STATIC_DIR, "index.html")
+    if os.path.isfile(index_path):
+        return FileResponse(index_path, media_type="text/html")
+    return HTMLResponse(LANDING_PAGE_HTML)
