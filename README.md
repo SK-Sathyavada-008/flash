@@ -5,6 +5,7 @@
 [![Python 3.12+](https://img.shields.io/badge/python-3.12+-blue.svg)](https://www.python.org/downloads/)
 [![React 19](https://img.shields.io/badge/react-19-cyan.svg)](https://react.dev/)
 [![Ollama](https://img.shields.io/badge/ollama-gemma2:2b-orange.svg)](https://ollama.com/)
+[![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/SK-Sathyavada-008/flash)
 
 > **"Slow and steady wins the race."** — Built for the Hacktoberfest Open-Source AI Challenge: Week 3.
 
